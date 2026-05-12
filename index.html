@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="screen-orientation" content="landscape">
+    <title>Arena Battle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a2e;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', sans-serif;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+        
+        #gameWrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #16213e;
+        }
+        
+        /* HUD 오버레이 */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 30px;
+            z-index: 50;
+        }
+        .health-bar {
+            text-align: center;
+        }
+        .health-bar-bg {
+            width: 120px;
+            height: 16px;
+            background: #333;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #555;
+        }
+        .health-bar-fill {
+            height: 100%;
+            transition: width 0.15s;
+        }
+        #playerHealth .health-bar-fill { background: linear-gradient(90deg, #4CAF50, #8BC34A); }
+        #enemyHealth .health-bar-fill { background: linear-gradient(90deg, #f44336, #ff5722); }
+        .label { 
+            color: #fff;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 3px;
+            text-shadow: 1px 1px 2px #000;
+        }
+        
+        /* 모바일 컨트롤 */
+        #mobileControls {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        /* 조이스틱 */
+        #joystickArea {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            width: 130px;
+            height: 130px;
+            pointer-events: auto;
+        }
+        #joystickBase {
+            width: 130px;
+            height: 130px;
+            background: rgba(255,255,255,0.1);
+            border: 3px solid rgba(255,255,255,0.25);
+            border-radius: 50%;
+            position: relative;
+        }
+        #joystickThumb {
+            width: 55px;
+            height: 55px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* 스킬 버튼 영역 */
+        #skillArea {
+            position: absolute;
+            right: 160px;
+            bottom: 30px;
+            pointer-events: auto;
+        }
+        
+        /* 스킬 배치 (가로 나열) */
+        #skillButtons {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .skillBtn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.4);
+            background: linear-gradient(145deg, rgba(74, 74, 138, 0.8), rgba(50, 50, 100, 0.9));
+            color: white;
+            font-size: 13px;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .skillBtn .key {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .skillBtn.cooldown {
+            background: rgba(40, 40, 40, 0.9);
+            border-color: rgba(80,80,80,0.5);
+        }
+        .skillBtn.cooldown::after {
+            content: attr(data-cd);
+            position: absolute;
+            font-size: 12px;
+            color: #aaa;
+        }
+        .skillBtn:active:not(.cooldown) {
+            transform: scale(0.92);
+            background: linear-gradient(145deg, rgba(100, 100, 180, 0.9), rgba(70, 70, 140, 1));
+        }
+        .skillBtn.aiming {
+            transform: scale(1.1);
+            border-color: rgba(255, 200, 100, 0.9);
+            box-shadow: 0 0 15px rgba(255, 200, 100, 0.6);
+        }
+        
+        /* 궁극기 */
+        .skillBtn.ult {
+            border-color: rgba(255, 200, 100, 0.6);
+            background: linear-gradient(145deg, rgba(120, 90, 40, 0.8), rgba(80, 60, 30, 0.9));
+        }
+        
+        /* 공격 조이스틱 (오른쪽 끝) */
+        #attackJoystickArea {
+            position: absolute;
+            right: 15px;
+            bottom: 20px;
+            width: 75px;
+            height: 75px;
+            pointer-events: auto;
+        }
+        #attackJoystickBase {
+            width: 75px;
+            height: 75px;
+            background: rgba(255,100,100,0.15);
+            border: 3px solid rgba(255,100,100,0.4);
+            border-radius: 50%;
+            position: relative;
+        }
+        #attackJoystickThumb {
+            width: 35px;
+            height: 35px;
+            background: rgba(255,100,100,0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #attackJoystickBase.aiming {
+            border-color: rgba(255, 200, 100, 0.8);
+            background: rgba(255, 200, 100, 0.2);
+        }
+        #attackJoystickBase.aiming #attackJoystickThumb {
+            background: rgba(255, 200, 100, 0.7);
+        }
+        
+        /* PC용 컨트롤 */
+        #pcControls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 50;
+        }
+        #skillCooldowns {
+            display: flex;
+            gap: 6px;
+        }
+        .skill {
+            padding: 6px 10px;
+            background: #2a2a4a;
+            border-radius: 6px;
+            font-size: 11px;
+            min-width: 70px;
+            border: 2px solid #4a4a6a;
+            color: #fff;
+            text-align: center;
+        }
+        .skill.ready { 
+            background: linear-gradient(135deg, #4a4a8a, #5a5a9a);
+            border-color: #6a6aaa;
+        }
+        .skill.cooldown { 
+            background: #222;
+            color: #666;
+            border-color: #333;
+        }
+        #controls {
+            font-size: 10px;
+            color: #888;
+        }
+        #controls strong {
+            color: #F4A460;
+        }
+        
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 30px 50px;
+            border-radius: 15px;
+            text-align: center;
+            border: 3px solid #F4A460;
+            z-index: 200;
+        }
+        #gameOver h2 { 
+            color: #fff; 
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+        #restartBtn {
+            padding: 10px 35px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #F4A460, #DEB887);
+            color: #1a1a2e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        /* 모바일 감지 */
+        @media (max-width: 900px), (pointer: coarse) {
+            #mobileControls {
+                display: block;
+            }
+            #pcControls {
+                display: none;
+            }
+        }
+        
+        @media (min-width: 901px) and (pointer: fine) {
+            #mobileControls {
+                display: none;
+            }
+        }
+        
+        /* 세이프 에리어 */
+        @supports (padding: env(safe-area-inset-left)) {
+            #joystickArea {
+                left: calc(20px + env(safe-area-inset-left));
+                bottom: calc(20px + env(safe-area-inset-bottom));
+            }
+            #attackJoystickArea {
+                right: calc(15px + env(safe-area-inset-right));
+                bottom: calc(20px + env(safe-area-inset-bottom));
+            }
+            #skillArea {
+                right: calc(110px + env(safe-area-inset-right));
+                bottom: calc(30px + env(safe-area-inset-bottom));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameWrapper">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- HUD -->
+        <div id="hud">
+            <div class="health-bar" id="playerHealth">
+                <div class="label">🧀 CHEESE</div>
+                <div class="health-bar-bg">
+                    <div class="health-bar-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="health-bar" id="enemyHealth">
+                <div class="label">🐱 CAT</div>
+                <div class="health-bar-bg">
+                    <div class="health-bar-fill" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PC 컨트롤 -->
+        <div id="pcControls">
+            <div id="skillCooldowns">
+                <div class="skill ready" id="skill1">Q 파이어볼</div>
+                <div class="skill ready" id="skill2">W 모래폭풍</div>
+                <div class="skill ready" id="skill3">E 대시</div>
+                <div class="skill ready" id="skillUlt">R 궁극기</div>
+            </div>
+            <div id="controls">
+                <strong>우클릭</strong> 이동/공격 | <strong>Q W E R</strong> 스킬
+            </div>
+        </div>
+        
+        <!-- 모바일 컨트롤 -->
+        <div id="mobileControls">
+            <div id="joystickArea">
+                <div id="joystickBase">
+                    <div id="joystickThumb"></div>
+                </div>
+            </div>
+            
+            <!-- 오른쪽 공격 조이스틱 -->
+            <div id="attackJoystickArea">
+                <div id="attackJoystickBase">
+                    <div id="attackJoystickThumb"></div>
+                </div>
+            </div>
+            
+            <!-- 스킬 버튼 -->
+            <div id="skillArea">
+                <div id="skillButtons">
+                    <button class="skillBtn" data-skill="q" data-cd="">
+                        <span class="key">Q</span>
+                    </button>
+                    <button class="skillBtn" data-skill="w" data-cd="">
+                        <span class="key">W</span>
+                    </button>
+                    <button class="skillBtn" data-skill="e" data-cd="">
+                        <span class="key">E</span>
+                    </button>
+                    <button class="skillBtn ult" data-skill="r" data-cd="">
+                        <span class="key">R</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="gameOver">
+            <h2 id="resultText">Victory!</h2>
+            <button id="restartBtn">다시 시작</button>
+        </div>
+    </div>
+    
+    <script src="src/game.js"></script>
+    <script src="src/mobile.js"></script>
+</body>
+</html>
