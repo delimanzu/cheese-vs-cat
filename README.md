@@ -16,8 +16,7 @@ python3 -m http.server 8000
 
 ## 📸 Screenshots
 
-<img width="1179" height="2267" alt="74204889-CAE8-49C2-81BC-1B7193FB424E_1_201_a" src="https://github.com/user-attachments/assets/ea09990e-0e3a-41ae-ab46-05cb024c7034" />
-
+<img width="2556" height="879" alt="CB1158E4-28CD-4AAE-96F6-5E5BEDB1C24D_1_201_a" src="https://github.com/user-attachments/assets/8469258a-a50b-40e4-b2b8-ead0aef9a434" />
 
 
 ## 조작법
